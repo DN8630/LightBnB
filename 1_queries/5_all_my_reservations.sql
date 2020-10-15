@@ -1,3 +1,4 @@
+-- Show all reservations for a user.
 SELECT reservations.* , properties.*, AVG(property_reviews.rating) as average_rating
 FROM reservations
 JOIN properties ON properties.id = reservations.property_id
