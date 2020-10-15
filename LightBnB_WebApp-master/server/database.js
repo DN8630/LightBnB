@@ -98,15 +98,58 @@ exports.getAllReservations = getAllReservations;
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = function(options, limit = 10) {
-  const queryString = `
-    SELECT * 
-    FROM properties
-    LIMIT $1;
-    `;
-  const values = [limit];
-  return pool.query(queryString,values)
-  .then(res => res.rows); 
 
+  let queryParams = [];
+  let queryString = `
+    SELECT properties.*, AVG(rating) as average_rating
+    FROM properties
+    JOIN property_reviews ON properties.id = property_id `;
+  // Search properties based on city
+  if (options.city) {
+  queryParams.push(`%${options.city}%`);
+  queryString += ` WHERE properties.city LIKE $${queryParams.length} `;
+  }
+  // Search properties based on owner
+  if (options.owner_id) {
+    queryParams.push(options.owner_id);
+    if (queryParams.length === 1) {
+    queryString += ` WHERE owner_id = $${queryParams.length} `;
+    } else {
+    queryString += ` AND owner_id = $${queryParams.length} `;
+    } 
+  }
+  // Search properties based on minimum price night
+  if (options.minimum_price_per_night) {
+    queryParams.push(options.minimum_price_per_night*100);
+    if (queryParams.length === 1) {
+    queryString += ` WHERE cost_per_night >= $${queryParams.length} `;
+    } else {
+    queryString += ` AND cost_per_night >= $${queryParams.length} `;
+    }
+  }
+ // Search properties based on maximum price night
+  if (options.maximum_price_per_night) {
+  queryParams.push(options.maximum_price_per_night*100);
+  if (queryParams.length === 1) {
+    queryString += ` WHERE cost_per_night < $${queryParams.length} `;
+  } else {
+  queryString += ` AND cost_per_night < $${queryParams.length} `;
+  }
+  }
+  queryString += ` GROUP BY properties.id `;
+
+  // Search properties based on minimum rating
+  if (options.minimum_rating) {
+  queryParams.push(options.minimum_rating);
+  queryString += ` HAVING AVG(rating) >= $${queryParams.length} `;
+  }
+  queryString += `ORDER BY cost_per_night `;
+  queryParams.push(limit);
+  queryString += ` LIMIT $${queryParams.length};`;
+  
+  return pool.query(queryString,queryParams)
+  .then(res => res.rows) 
+  .catch(err => console.log('Error', err));
 }
 exports.getAllProperties = getAllProperties;
 
